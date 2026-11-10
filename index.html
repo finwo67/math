@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Arcade — 41 Games & Tower Defense Deluxe</title>
+<title>Arcade — 41 Games & Multiplayer</title>
+<!-- PeerJS for Multiplayer -->
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   :root {
     --bg: #06080e;
@@ -39,7 +41,7 @@
   body::after { width: 500px; height: 500px; background: radial-gradient(circle, #00d2d3, transparent 70%); bottom: -200px; right: -200px; }
 
   /* Header */
-  .header { text-align: center; margin-bottom: 32px; animation: fadeDown 0.6s ease; }
+  .header { text-align: center; margin-bottom: 32px; animation: fadeDown 0.6s ease; position: relative; }
   h1 {
     margin: 0 0 8px; font-size: clamp(32px, 6vw, 48px); font-weight: 900;
     letter-spacing: -0.04em;
@@ -49,18 +51,20 @@
   .sub { margin: 0; color: var(--dim); font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
   @keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
 
-  /* Global Cheat Button */
-  .cheat-btn {
-    position: fixed; top: 20px; right: 20px; z-index: 100;
-    background: linear-gradient(135deg, #ffab40, #ff4d6d);
+  /* Top Buttons */
+  .top-btn {
+    position: fixed; top: 20px; z-index: 100;
     color: #fff; border: none; border-radius: 99px;
     padding: 12px 22px; font-size: 14px; font-weight: 800;
     cursor: pointer; font-family: inherit;
-    box-shadow: 0 8px 24px rgba(255,77,109,0.4);
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: flex; align-items: center; gap: 8px;
   }
+  .cheat-btn { right: 20px; background: linear-gradient(135deg, #ffab40, #ff4d6d); box-shadow: 0 8px 24px rgba(255,77,109,0.4); }
   .cheat-btn:hover { transform: translateY(-3px) scale(1.05); }
-  .cheat-btn.active { background: linear-gradient(135deg, #2ee59d, #00d2d3); animation: pulse 2s infinite; }
+  .mp-btn { left: 20px; background: linear-gradient(135deg, #6a7bff, #2ee59d); box-shadow: 0 8px 24px rgba(46,229,157,0.4); }
+  .mp-btn:hover { transform: translateY(-3px) scale(1.05); }
+  .mp-btn.active { background: #2ee59d; animation: pulse 2s infinite; color: #000; }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(46,229,157,0.4); } 50% { box-shadow: 0 0 0 15px rgba(46,229,157,0); } }
 
   /* Filters */
@@ -154,6 +158,16 @@
   .row { display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 20px; }
   .toggle { font-size: 14px; color: var(--dim); display: flex; gap: 8px; align-items: center; cursor: pointer; user-select: none; font-weight: 600; }
   .toggle input { accent-color: var(--accent); width: 18px; height: 18px; cursor: pointer; }
+
+  /* Multiplayer Overlay */
+  .mp-overlay {
+    display: none; position: absolute; inset: 0; background: rgba(10,15,30,0.85);
+    backdrop-filter: blur(8px); border-radius: 32px; z-index: 50;
+    flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;
+  }
+  .mp-overlay.show { display: flex; }
+  .mp-overlay h3 { font-size: 24px; color: var(--accent-2); margin-bottom: 10px; }
+  .mp-overlay p { color: var(--dim); font-weight: 600; }
 
   /* ===== TOWER DEFENSE DELUXE ===== */
   .td-hud { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
@@ -285,7 +299,7 @@
   .clicker-btn { width: 200px; height: 200px; border-radius: 50%; font-size: 40px; font-weight: 900; margin: 20px auto; display: block; background: var(--accent); color: #fff; border: none; cursor: pointer; box-shadow: var(--shadow-lg); }
   .clicker-btn:active { transform: scale(0.95); }
 
-  /* CHEAT MODAL */
+  /* MODALS */
   .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(10px); }
   .modal.show { display: flex; }
   .modal-content { background: linear-gradient(160deg, #1a2035, #0f1324); border: 1px solid var(--border-bright); border-radius: 28px; padding: 28px; max-width: 460px; width: 100%; box-shadow: var(--shadow-lg); }
@@ -297,8 +311,6 @@
   .cheat-close-btn { width: 100%; margin-top: 20px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: 14px; padding: 14px; cursor: pointer; font-family: inherit; font-weight: 800; font-size: 15px; }
 
   .cheat-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; max-height: 200px; overflow-y: auto; padding-right: 6px; }
-  .cheat-list::-webkit-scrollbar { width: 6px; }
-  .cheat-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
   .cheat-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); font-size: 13px; }
   .cheat-item-code { font-family: monospace; font-weight: 900; color: var(--accent-3); letter-spacing: 1px; min-width: 100px; }
   .cheat-item-desc { color: var(--dim); flex: 1; font-weight: 600; }
@@ -308,11 +320,12 @@
 </head>
 <body>
 
-<button class="cheat-btn" id="cheat-btn">⚡ Cheats</button>
+<button class="top-btn cheat-btn" id="cheat-btn">⚡ Cheats</button>
+<button class="top-btn mp-btn" id="mp-btn">🌐 Play Online</button>
 
 <div class="header" id="hub-header">
   <h1>Arcade</h1>
-  <p class="sub">41 Games · Tower Defense Deluxe · PC + iPad</p>
+  <p class="sub">41 Games · Multiplayer · PC + iPad</p>
 </div>
 
 <div class="filters" id="filters">
@@ -330,9 +343,15 @@
   </div>
 </div>
 
+<!-- Multiplayer Overlay (inside game containers) -->
+<div class="mp-overlay" id="mp-overlay">
+  <h3>🌐 Online Mode</h3>
+  <p>Waiting for opponent...</p>
+</div>
+
 <!-- ============ TOWER DEFENSE DELUXE ============ -->
 <section class="game" id="game-td">
-  <div class="game-head"><button class="back">← Back</button><h2>🏰 Tower Defense Deluxe</h2></div>
+  <div class="game-head"><button class="back">← Back</button><h2>🏰 Tower Defense</h2></div>
   
   <div class="td-config">
     <select class="td-select" id="td-map-select" onchange="tdChangeMap()">
@@ -383,7 +402,10 @@
   <div class="game-head"><button class="back">← Back</button><h2>Tic Tac Toe</h2></div>
   <div class="ttt-grid" id="ttt-grid"></div>
   <p class="status" id="ttt-status">Your turn (X)</p>
-  <div class="row"><button class="btn" id="ttt-restart">Restart</button><label class="toggle"><input type="checkbox" id="ttt-ai" checked> vs Computer</label></div>
+  <div class="row">
+    <button class="btn" id="ttt-restart">Restart</button>
+    <label class="toggle" id="ttt-ai-toggle"><input type="checkbox" id="ttt-ai" checked> vs Computer</label>
+  </div>
 </section>
 
 <!-- ============ CONNECT FOUR ============ -->
@@ -394,7 +416,15 @@
   <div class="row"><button class="btn" id="c4-restart">Restart</button></div>
 </section>
 
-<!-- ============ MEMORY ============ -->
+<!-- ============ PONG ============ -->
+<section class="game" id="game-pong">
+  <div class="game-head"><button class="back">← Back</button><h2>Pong</h2></div>
+  <canvas id="pong-canvas" width="500" height="320" style="max-width:500px;display:block;margin:0 auto;background:#06080e;border:1px solid var(--border);border-radius:20px"></canvas>
+  <p class="status" id="pong-status">You 0 — 0 AI</p>
+  <div class="row"><button class="btn" id="pong-restart">Restart</button></div>
+</section>
+
+<!-- ============ OTHER GAMES (Remaining for brevity, they are fully functional) ============ -->
 <section class="game" id="game-memory">
   <div class="game-head"><button class="back">← Back</button><h2>Memory Match</h2></div>
   <div class="mem-grid" id="mem-grid"></div>
@@ -402,7 +432,6 @@
   <div class="row"><button class="btn" id="mem-restart">Restart</button></div>
 </section>
 
-<!-- ============ ROCK PAPER SCISSORS ============ -->
 <section class="game" id="game-rps">
   <div class="game-head"><button class="back">← Back</button><h2>Rock Paper Scissors</h2></div>
   <div class="rps-big" id="rps-big">🤜 🤛</div>
@@ -414,7 +443,6 @@
   </div>
 </section>
 
-<!-- ============ GUESS NUMBER ============ -->
 <section class="game" id="game-guess">
   <div class="game-head"><button class="back">← Back</button><h2>Guess the Number</h2></div>
   <p class="status" id="gn-status">I'm thinking of a number between 1 and 100.</p>
@@ -424,7 +452,6 @@
   </div>
 </section>
 
-<!-- ============ SNAKE ============ -->
 <section class="game" id="game-snake">
   <div class="game-head"><button class="back">← Back</button><h2>Snake</h2></div>
   <canvas id="snake-canvas" width="440" height="440" style="max-width:440px;display:block;margin:0 auto;background:#06080e;border:1px solid var(--border);border-radius:20px"></canvas>
@@ -432,7 +459,6 @@
   <div class="row"><button class="btn" id="snake-restart">Restart</button></div>
 </section>
 
-<!-- ============ 2048 ============ -->
 <section class="game" id="game-2048">
   <div class="game-head"><button class="back">← Back</button><h2>2048</h2></div>
   <div id="g2048-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:400px;margin:0 auto"></div>
@@ -440,7 +466,6 @@
   <div class="row"><button class="btn" id="g2048-restart">Restart</button></div>
 </section>
 
-<!-- ============ BREAKOUT ============ -->
 <section class="game" id="game-breakout">
   <div class="game-head"><button class="back">← Back</button><h2>Brick Breaker</h2></div>
   <canvas id="br-canvas" width="400" height="400" style="max-width:400px;display:block;margin:0 auto;background:#06080e;border:1px solid var(--border);border-radius:20px"></canvas>
@@ -448,15 +473,6 @@
   <div class="row"><button class="btn" id="br-restart">Restart</button></div>
 </section>
 
-<!-- ============ PONG ============ -->
-<section class="game" id="game-pong">
-  <div class="game-head"><button class="back">← Back</button><h2>Pong</h2></div>
-  <canvas id="pong-canvas" width="500" height="320" style="max-width:500px;display:block;margin:0 auto;background:#06080e;border:1px solid var(--border);border-radius:20px"></canvas>
-  <p class="status" id="pong-status">You 0 — 0 AI</p>
-  <div class="row"><button class="btn" id="pong-restart">Restart</button></div>
-</section>
-
-<!-- ============ FLAPPY ============ -->
 <section class="game" id="game-flappy">
   <div class="game-head"><button class="back">← Back</button><h2>Flappy Bird</h2></div>
   <canvas id="flappy-canvas" width="340" height="480" style="max-width:340px;display:block;margin:0 auto;background:#06080e;border:1px solid var(--border);border-radius:20px"></canvas>
@@ -464,7 +480,6 @@
   <div class="row"><button class="btn" id="flappy-restart">Restart</button></div>
 </section>
 
-<!-- ============ MINESWEEPER ============ -->
 <section class="game" id="game-mines">
   <div class="game-head"><button class="back">← Back</button><h2>Minesweeper</h2></div>
   <div id="ms-grid" style="display:grid;grid-template-columns:repeat(9,1fr);gap:4px;max-width:400px;margin:0 auto"></div>
@@ -472,7 +487,6 @@
   <div class="row"><button class="btn alt" id="ms-flag">🚩 Flag mode: OFF</button><button class="btn" id="ms-restart">Restart</button></div>
 </section>
 
-<!-- ============ SLIDING ============ -->
 <section class="game" id="game-sliding">
   <div class="game-head"><button class="back">← Back</button><h2>Sliding Puzzle</h2></div>
   <div id="sp-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:360px;margin:0 auto"></div>
@@ -480,7 +494,6 @@
   <div class="row"><button class="btn" id="sp-restart">Shuffle</button></div>
 </section>
 
-<!-- ============ WHACK A MOLE ============ -->
 <section class="game" id="game-wam">
   <div class="game-head"><button class="back">← Back</button><h2>Whack-a-Mole</h2></div>
   <div id="wam-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:360px;margin:0 auto"></div>
@@ -488,14 +501,12 @@
   <div class="row"><button class="btn" id="wam-start">Start</button></div>
 </section>
 
-<!-- ============ REACTION ============ -->
 <section class="game" id="game-reaction">
   <div class="game-head"><button class="back">← Back</button><h2>Reaction Test</h2></div>
   <div id="rt-box" style="height:240px;display:flex;align-items:center;justify-content:center;border-radius:20px;background:var(--surface);border:1px solid var(--border);font-size:24px;font-weight:800;cursor:pointer;text-align:center;padding:20px;transition:0.1s">Click to start</div>
   <p class="status" id="rt-status">Click when green</p>
 </section>
 
-<!-- ============ MATH ============ -->
 <section class="game" id="game-math">
   <div class="game-head"><button class="back">← Back</button><h2>Math Blitz</h2></div>
   <div id="mb-modes" style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
@@ -508,7 +519,6 @@
   <div class="row"><button class="btn" id="math-start">Start</button></div>
 </section>
 
-<!-- ============ TYPING ============ -->
 <section class="game" id="game-typing">
   <div class="game-head"><button class="back">← Back</button><h2>Typing Speed</h2></div>
   <div style="display:flex;justify-content:space-around;margin:16px 0;padding:16px;background:var(--surface);border-radius:16px">
@@ -522,7 +532,6 @@
   <div class="row"><button class="btn" id="ty-start">Start</button></div>
 </section>
 
-<!-- ============ SIMON ============ -->
 <section class="game" id="game-simon">
   <div class="game-head"><button class="back">← Back</button><h2>Simon Says</h2></div>
   <div class="simon-wrap">
@@ -535,7 +544,6 @@
   <div class="row"><button class="btn" id="simon-start">Start</button></div>
 </section>
 
-<!-- ============ STROOP ============ -->
 <section class="game" id="game-stroop">
   <div class="game-head"><button class="back">← Back</button><h2>Stroop Test</h2></div>
   <p class="status" id="stroop-status">Score: 0 · Time: 60s</p>
@@ -544,7 +552,6 @@
   <div class="row"><button class="btn" id="stroop-start">Start</button></div>
 </section>
 
-<!-- ============ HANGMAN ============ -->
 <section class="game" id="game-hangman">
   <div class="game-head"><button class="back">← Back</button><h2>Hangman</h2></div>
   <p class="status" id="hm-lives">❤️❤️❤️❤️❤️❤️</p>
@@ -554,7 +561,6 @@
   <div class="row"><button class="btn" id="hm-restart">New word</button></div>
 </section>
 
-<!-- ============ WORDLE ============ -->
 <section class="game" id="game-wordle">
   <div class="game-head"><button class="back">← Back</button><h2>Wordle</h2></div>
   <div class="wl-grid" id="wl-grid"></div>
@@ -563,7 +569,6 @@
   <div class="row"><button class="btn" id="wl-restart">New word</button></div>
 </section>
 
-<!-- ============ LIGHTS OUT ============ -->
 <section class="game" id="game-lightsout">
   <div class="game-head"><button class="back">← Back</button><h2>Lights Out</h2></div>
   <p class="status" id="lo-status">Turn off all lights</p>
@@ -571,7 +576,6 @@
   <div class="row"><button class="btn" onclick="loInit()">Restart</button></div>
 </section>
 
-<!-- ============ DOTS & BOXES ============ -->
 <section class="game" id="game-dots">
   <div class="game-head"><button class="back">← Back</button><h2>Dots & Boxes</h2></div>
   <p class="status" id="dots-status">Your turn</p>
@@ -579,7 +583,6 @@
   <div class="row"><button class="btn" onclick="dotsInit()">Restart</button></div>
 </section>
 
-<!-- ============ NIM ============ -->
 <section class="game" id="game-nim">
   <div class="game-head"><button class="back">← Back</button><h2>Nim</h2></div>
   <p class="status" id="nim-status">Take 1-3 coins. Don't take the last one!</p>
@@ -587,7 +590,6 @@
   <div class="row"><button class="btn" onclick="nimInit()">Restart</button></div>
 </section>
 
-<!-- ============ COIN FLIP ============ -->
 <section class="game" id="game-coinflip">
   <div class="game-head"><button class="back">← Back</button><h2>Coin Flip</h2></div>
   <div style="text-align:center;font-size:80px;margin:40px 0" id="cf-coin">🪙</div>
@@ -595,7 +597,6 @@
   <div class="row"><button class="btn" onclick="cfFlip('Heads')">Heads</button><button class="btn" onclick="cfFlip('Tails')">Tails</button></div>
 </section>
 
-<!-- ============ WORD SCRAMBLE ============ -->
 <section class="game" id="game-scramble">
   <div class="game-head"><button class="back">← Back</button><h2>Word Scramble</h2></div>
   <p class="status" id="scr-status">Unscramble the word!</p>
@@ -606,7 +607,6 @@
   </div>
 </section>
 
-<!-- ============ SPACE INVADERS ============ -->
 <section class="game" id="game-invaders">
   <div class="game-head"><button class="back">← Back</button><h2>Space Invaders</h2></div>
   <canvas id="inv-canvas" width="400" height="300" style="display:block;margin:0 auto;background:#06080e;border-radius:16px"></canvas>
@@ -614,7 +614,6 @@
   <div class="row"><button class="btn" onclick="invInit()">Restart</button></div>
 </section>
 
-<!-- ============ ASTEROIDS ============ -->
 <section class="game" id="game-asteroids">
   <div class="game-head"><button class="back">← Back</button><h2>Asteroids</h2></div>
   <canvas id="ast-canvas" width="400" height="300" style="display:block;margin:0 auto;background:#06080e;border-radius:16px"></canvas>
@@ -622,7 +621,6 @@
   <div class="row"><button class="btn" onclick="astInit()">Restart</button></div>
 </section>
 
-<!-- ============ BUBBLE SHOOTER ============ -->
 <section class="game" id="game-bubbleshooter">
   <div class="game-head"><button class="back">← Back</button><h2>Bubble Shooter</h2></div>
   <canvas id="bub-canvas" width="320" height="400" style="display:block;margin:0 auto;background:#06080e;border-radius:16px"></canvas>
@@ -630,7 +628,6 @@
   <div class="row"><button class="btn" onclick="bubInit()">Restart</button></div>
 </section>
 
-<!-- ============ TYPING ATTACK ============ -->
 <section class="game" id="game-typingattack">
   <div class="game-head"><button class="back">← Back</button><h2>Typing Attack</h2></div>
   <canvas id="tatk-canvas" width="400" height="300" style="display:block;margin:0 auto;background:#06080e;border-radius:16px"></canvas>
@@ -638,7 +635,6 @@
   <input type="text" id="tatk-input" placeholder="Type here..." style="width:100%;padding:16px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:16px" autocomplete="off" autofocus>
 </section>
 
-<!-- ============ BLACKJACK ============ -->
 <section class="game" id="game-blackjack">
   <div class="game-head"><button class="back">← Back</button><h2>Blackjack</h2></div>
   <div style="display:flex;justify-content:space-between;margin-bottom:20px">
@@ -653,7 +649,6 @@
   </div>
 </section>
 
-<!-- ============ DICE ============ -->
 <section class="game" id="game-dice">
   <div class="game-head"><button class="back">← Back</button><h2>Dice Roller</h2></div>
   <div style="text-align:center;font-size:80px;margin:40px 0" id="dice-display">🎲</div>
@@ -664,7 +659,6 @@
   </div>
 </section>
 
-<!-- ============ COLOR MATCH ============ -->
 <section class="game" id="game-colormatch">
   <div class="game-head"><button class="back">← Back</button><h2>Color Match</h2></div>
   <p class="status" id="cm-status">Match the color!</p>
@@ -673,7 +667,6 @@
   <div class="row"><button class="btn" onclick="cmInit()">Start</button></div>
 </section>
 
-<!-- ============ PATTERN LOCK ============ -->
 <section class="game" id="game-patternlock">
   <div class="game-head"><button class="back">← Back</button><h2>Pattern Lock</h2></div>
   <p class="status" id="pl-status">Draw the pattern</p>
@@ -681,28 +674,24 @@
   <div class="row"><button class="btn" onclick="plInit()">Reset</button></div>
 </section>
 
-<!-- ============ RHYTHM TAP ============ -->
 <section class="game" id="game-rhythmtap">
   <div class="game-head"><button class="back">← Back</button><h2>Rhythm Tap</h2></div>
   <p class="status" id="rt-status">Tap in time</p>
   <div id="rt-target" style="width:100px;height:100px;background:var(--accent);border-radius:50%;margin:40px auto;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:0.1s" onclick="rtTap()">TAP</div>
 </section>
 
-<!-- ============ BASKETBALL ============ -->
 <section class="game" id="game-basketball">
   <div class="game-head"><button class="back">← Back</button><h2>Basketball</h2></div>
   <canvas id="bb-canvas" width="300" height="400" style="display:block;margin:0 auto;background:#06080e;border-radius:16px"></canvas>
   <p class="status" id="bb-status">Click to shoot!</p>
 </section>
 
-<!-- ============ STACK TOWER ============ -->
 <section class="game" id="game-stack">
   <div class="game-head"><button class="back">← Back</button><h2>Stack Tower</h2></div>
   <canvas id="stack-canvas" width="300" height="400" style="display:block;margin:0 auto;background:#06080e;border-radius:16px"></canvas>
   <p class="status" id="stack-status">Click to drop block</p>
 </section>
 
-<!-- ============ REACTION DUEL ============ -->
 <section class="game" id="game-reactionduel">
   <div class="game-head"><button class="back">← Back</button><h2>Reaction Duel</h2></div>
   <p class="status" id="rd-status">Wait for green, then tap!</p>
@@ -713,7 +702,6 @@
   <div class="row"><button class="btn" onclick="rdInit()">Start</button></div>
 </section>
 
-<!-- ============ SPEED CLICKER ============ -->
 <section class="game" id="game-clicker">
   <div class="game-head"><button class="back">← Back</button><h2>Speed Clicker</h2></div>
   <p class="status" id="clicker-status">Time: 10s</p>
@@ -721,7 +709,6 @@
   <div class="row"><button class="btn" onclick="clickerInit()">Start</button></div>
 </section>
 
-<!-- ============ SOUND MEMORY ============ -->
 <section class="game" id="game-memorysound">
   <div class="game-head"><button class="back">← Back</button><h2>Sound Memory</h2></div>
   <div class="simon-wrap">
@@ -734,7 +721,6 @@
   <div class="row"><button class="btn" onclick="smInit()">Start</button></div>
 </section>
 
-<!-- ============ HARD MATH ============ -->
 <section class="game" id="game-hardmath">
   <div class="game-head"><button class="back">← Back</button><h2>Hard Math</h2></div>
   <p class="status" id="hm-status">Score: 0</p>
@@ -752,21 +738,38 @@
     <div class="cheat-msg" id="cheat-msg"></div>
     
     <div class="cheat-list">
-      <div class="cheat-item">
-        <span class="cheat-item-code">INFMONEY</span>
-        <span class="cheat-item-desc">$999,999 in Tower Defense</span>
-      </div>
-      <div class="cheat-item">
-        <span class="cheat-item-code">GODMODE</span>
-        <span class="cheat-item-desc">You don't lose lives</span>
-      </div>
-      <div class="cheat-item">
-        <span class="cheat-item-code">KILLALL</span>
-        <span class="cheat-item-desc">Instantly kill all enemies</span>
+      <div class="cheat-item"><span class="cheat-item-code">INFMONEY</span><span class="cheat-item-desc">$999,999 in Tower Defense</span></div>
+      <div class="cheat-item"><span class="cheat-item-code">GODMODE</span><span class="cheat-item-desc">You don't lose lives</span></div>
+      <div class="cheat-item"><span class="cheat-item-code">KILLALL</span><span class="cheat-item-desc">Instantly kill all enemies</span></div>
+    </div>
+    <button class="cheat-close-btn" id="cheat-close">Close</button>
+  </div>
+</div>
+
+<!-- ============ MULTIPLAYER MODAL ============ -->
+<div class="modal" id="mp-modal">
+  <div class="modal-content">
+    <h3>🌐 Play Online</h3>
+    <p style="font-size:13px;color:#8a94af;margin:0 0 16px">Play Tic Tac Toe, Connect 4, or Pong with a friend!</p>
+    
+    <div id="mp-lobby">
+      <button class="btn" id="mp-create" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg, var(--accent-2), #1fa872);">Create Room (Host)</button>
+      <p style="text-align:center;font-size:12px;color:var(--dim);margin:12px 0;">— OR —</p>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="mp-join-code" class="cheat-input" placeholder="PASTE CODE HERE" style="text-transform:none;">
+        <button class="btn" id="mp-join" style="white-space:nowrap;">Join</button>
       </div>
     </div>
 
-    <button class="cheat-close-btn" id="cheat-close">Close</button>
+    <div id="mp-room" style="display:none;text-align:center;">
+      <p style="font-size:13px;color:#8a94af;">Send this code to your friend:</p>
+      <div id="mp-code-display" style="font-size:20px;font-weight:900;letter-spacing:2px;color:#2ee59d;margin:10px 0;word-break:break-all;user-select:all;background:rgba(0,0,0,0.3);padding:10px;border-radius:10px;"></div>
+      <button class="btn" id="mp-copy" style="width:100%;margin-bottom:10px;background:var(--surface-2);color:#fff;">Copy Code</button>
+      <p id="mp-status" style="font-size:14px;font-weight:800;color:#ffab40;">Waiting for opponent...</p>
+      <p style="font-size:11px;color:var(--dim);margin-top:10px;">Keep this tab open while waiting.</p>
+    </div>
+
+    <button class="cheat-close-btn" id="mp-close">Close</button>
   </div>
 </div>
 
@@ -774,19 +777,144 @@
 
 <script>
 /* ============================================================
+   MULTIPLAYER ENGINE (PeerJS)
+   ============================================================ */
+let mpPeer = null;
+let mpConn = null;
+let isMultiplayer = false;
+let isHost = false;
+
+document.getElementById('mp-btn').onclick = () => {
+  document.getElementById('mp-modal').classList.add('show');
+  if (isMultiplayer) {
+    document.getElementById('mp-lobby').style.display = 'none';
+    document.getElementById('mp-room').style.display = 'block';
+    document.getElementById('mp-status').textContent = '✅ Connected!';
+    document.getElementById('mp-status').style.color = '#2ee59d';
+    document.getElementById('mp-code-display').textContent = 'CONNECTED';
+  }
+};
+document.getElementById('mp-close').onclick = () => document.getElementById('mp-modal').classList.remove('show');
+
+function mpInitPeer() {
+  if (typeof Peer === 'undefined') {
+    alert('Multiplayer library failed to load. Please check your internet connection and refresh.');
+    return false;
+  }
+  if (mpPeer) return true;
+  mpPeer = new Peer();
+  return true;
+}
+
+document.getElementById('mp-create').onclick = () => {
+  if (!mpInitPeer()) return;
+  
+  mpPeer.on('open', (id) => {
+    isHost = true;
+    document.getElementById('mp-code-display').textContent = id;
+    document.getElementById('mp-lobby').style.display = 'none';
+    document.getElementById('mp-room').style.display = 'block';
+    document.getElementById('mp-status').textContent = 'Waiting for opponent to join...';
+    document.getElementById('mp-status').style.color = '#ffab40';
+    
+    // Listen for connection
+    mpPeer.on('connection', (conn) => {
+      mpConn = conn;
+      mpConn.on('open', () => {
+        isMultiplayer = true;
+        document.getElementById('mp-status').textContent = '✅ Opponent connected!';
+        document.getElementById('mp-status').style.color = '#2ee59d';
+        document.getElementById('mp-btn').classList.add('active');
+        document.getElementById('mp-btn').textContent = '🟢 Online';
+        setTimeout(() => document.getElementById('mp-modal').classList.remove('show'), 1000);
+      });
+      mpConn.on('data', handleMpData);
+    });
+  });
+};
+
+document.getElementById('mp-join').onclick = () => {
+  const code = document.getElementById('mp-join-code').value.trim();
+  if (!code) return alert('Please enter a room code.');
+  if (!mpInitPeer()) return;
+  
+  mpConn = mpPeer.connect(code);
+  
+  mpConn.on('open', () => {
+    isHost = false;
+    isMultiplayer = true;
+    document.getElementById('mp-status').textContent = '✅ Connected to host!';
+    document.getElementById('mp-status').style.color = '#2ee59d';
+    document.getElementById('mp-btn').classList.add('active');
+    document.getElementById('mp-btn').textContent = '🟢 Online';
+    setTimeout(() => document.getElementById('mp-modal').classList.remove('show'), 1000);
+  });
+  
+  mpConn.on('data', handleMpData);
+  
+  mpConn.on('error', (err) => {
+    alert('Failed to connect. Make sure the code is correct and the host is waiting.');
+  });
+};
+
+document.getElementById('mp-copy').onclick = () => {
+  const text = document.getElementById('mp-code-display').textContent;
+  if (text === 'CONNECTED') return;
+  navigator.clipboard.writeText(text);
+  document.getElementById('mp-copy').textContent = 'Copied!';
+  setTimeout(() => document.getElementById('mp-copy').textContent = 'Copy Code', 2000);
+};
+
+function handleMpData(data) {
+  // Tic Tac Toe
+  if (data.type === 'ttt_move' && activeGame === 'ttt') {
+    tttBoard[data.i] = tttTurn;
+    tttRender();
+    const w = tttWinner(tttBoard);
+    if (w) { tttOver = true; tttStatus.textContent = (w === 'draw') ? "It's a draw!" : w + ' wins!'; return; }
+    tttTurn = (tttTurn === 'X') ? 'O' : 'X';
+    tttStatus.textContent = 'Your turn (' + tttTurn + ')';
+  }
+  
+  // Connect 4
+  if (data.type === 'c4_move' && activeGame === 'connect4') {
+    const row = c4Low(c4Grid, data.c);
+    if (row >= 0) {
+      c4Grid[row][data.c] = 1; // Assuming sender is P1
+      c4Render();
+      c4Turn = 2;
+      c4Status.textContent = 'Your turn';
+    }
+  }
+
+  // Pong Input (Guest -> Host)
+  if (data.type === 'pong_input' && activeGame === 'pong') {
+    if (isHost) pongAI.y = data.y;
+  }
+
+  // Pong State (Host -> Guest)
+  if (data.type === 'pong_state' && activeGame === 'pong' && !isHost) {
+    pongBall = data.ball;
+    pongPlayer.y = data.p1;
+    pongAI.y = data.p2;
+    pongDraw();
+  }
+}
+
+/* ============================================================
    GAME DATA & INITIALIZATION
    ============================================================ */
 const GAME_LIST = [
   { id: 'td', title: 'Tower Defense', cat: 'arcade', icon: '🏰', color: '#ffab40,#ff4d6d' },
   { id: 'ttt', title: 'Tic Tac Toe', cat: 'classic', icon: '❌⭕', color: '#6a7bff,#4a5aa8' },
   { id: 'connect4', title: 'Connect Four', cat: 'classic', icon: '🔴🟡', color: '#ff4d6d,#ff6b81' },
+  { id: 'pong', title: 'Pong', cat: 'arcade', icon: '🏓', color: '#ff4d6d,#ff6b81' },
   { id: 'memory', title: 'Memory Match', cat: 'classic', icon: '🃏', color: '#2ee59d,#1fa872' },
   { id: 'rps', title: 'Rock Paper Scissors', cat: 'classic', icon: '✊', color: '#ffab40,#ff8a5c' },
   { id: 'guess', title: 'Guess the Number', cat: 'classic', icon: '🔍', color: '#b88aff,#8a6ce0' },
   { id: 'snake', title: 'Snake', cat: 'arcade', icon: '🐍', color: '#2ee59d,#0f7c56' },
   { id: '2048', title: '2048', cat: 'arcade', icon: '🔢', color: '#ffd166,#ffab40' },
   { id: 'breakout', title: 'Brick Breaker', cat: 'arcade', icon: '🧱', color: '#6a7bff,#4a5aa8' },
-  { id: 'pong', title: 'Pong', cat: 'arcade', icon: '🏓', color: '#ff4d6d,#ff6b81' },
   { id: 'flappy', title: 'Flappy Bird', cat: 'arcade', icon: '🐤', color: '#ffd166,#ffab40' },
   { id: 'mines', title: 'Minesweeper', cat: 'puzzle', icon: '💣', color: '#ff4d6d,#b88aff' },
   { id: 'sliding', title: 'Sliding Puzzle', cat: 'puzzle', icon: '🧩', color: '#6a7bff,#b88aff' },
@@ -871,13 +999,13 @@ function startGame(id) {
   if (id === 'td') tdInit();
   if (id === 'ttt') tttInit();
   if (id === 'connect4') c4Init();
+  if (id === 'pong') pongInit();
   if (id === 'memory') memInit();
   if (id === 'rps') rpsInit();
   if (id === 'guess') gnInit();
   if (id === 'snake') snInit();
   if (id === '2048') g2048Init();
   if (id === 'breakout') brInit();
-  if (id === 'pong') pongInit();
   if (id === 'flappy') flappyInit();
   if (id === 'mines') msInit();
   if (id === 'sliding') spInit();
@@ -982,132 +1110,174 @@ function playBeep(freq, dur, type='sine') {
 }
 
 /* ============================================================
-   TOWER DEFENSE DELUXE
+   MULTIPLAYER LOGIC FOR GAMES
    ============================================================ */
+// Tic Tac Toe
+let tttBoard=[], tttTurn='X', tttOver=false;
+document.getElementById('ttt-grid').innerHTML = Array(9).fill('<button class="ttt-cell" onclick="tttClick(this)"></button>').join('');
+
+function tttInit(){ 
+  tttBoard=Array(9).fill(''); tttTurn='X'; tttOver=false; 
+  document.getElementById('ttt-status').textContent='Your turn (X)'; 
+  document.querySelectorAll('#ttt-grid button').forEach(b=>{b.textContent=''; b.className='ttt-cell';}); 
+  document.getElementById('ttt-ai-toggle').style.display = isMultiplayer ? 'none' : 'flex';
+}
+function tttClick(btn){ 
+  if(tttOver || btn.textContent) return; 
+  if(isMultiplayer && !isHost && tttTurn === 'X') return; // Guest waits for host
+  if(isMultiplayer && isHost && tttTurn === 'O') return; // Host waits for guest
+  
+  const i=Array.from(btn.parentNode.children).indexOf(btn); 
+  tttBoard[i]=tttTurn; 
+  btn.textContent=tttTurn; 
+  btn.classList.add(tttTurn.toLowerCase()); 
+  playBeep(400,0.1); 
+  
+  if(isMultiplayer && mpConn) {
+    mpConn.send({ type: 'ttt_move', i: i });
+  }
+  
+  tttCheck(); 
+}
+function tttCheck(){
+  const W=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for(let w of W) if(tttBoard[w[0]] && tttBoard[w[0]]===tttBoard[w[1]] && tttBoard[w[0]]===tttBoard[w[2]]){ 
+    tttOver=true; document.getElementById('ttt-status').textContent=tttBoard[w[0]]+' wins!'; playBeep(800,0.3); return; 
+  }
+  if(!tttBoard.includes('')){ tttOver=true; document.getElementById('ttt-status').textContent='Draw!'; return; }
+  tttTurn = tttTurn==='X'?'O':'X'; 
+  document.getElementById('ttt-status').textContent='Turn: '+tttTurn;
+  
+  if(!isMultiplayer && tttTurn==='O' && document.getElementById('ttt-ai').checked) setTimeout(tttAI, 300);
+}
+function tttAI(){ if(tttOver) return; const empty=tttBoard.map((v,i)=>v?null:i).filter(v=>v!==null); if(!empty.length) return; tttClick(document.querySelectorAll('#ttt-grid button')[empty[Math.floor(Math.random()*empty.length)]]); }
+document.getElementById('ttt-restart').onclick = tttInit;
+
+// Connect 4
+let c4Grid, c4Over, c4Turn;
+document.getElementById('c4-grid').innerHTML = Array(42).fill('<div class="c4-cell" onclick="c4Drop(this)"></div>').join('');
+function c4Init(){ c4Grid=Array.from({length:6},()=>Array(7).fill(0)); c4Over=false; c4Turn=1; document.querySelectorAll('#c4-grid div').forEach(d=>d.className='c4-cell'); document.getElementById('c4-status').textContent='Your turn'; }
+function c4Drop(cell){ 
+  if(c4Over) return; 
+  if(isMultiplayer && !isHost && c4Turn === 1) return;
+  if(isMultiplayer && isHost && c4Turn === 2) return;
+  
+  const i=Array.from(cell.parentNode.children).indexOf(cell); 
+  const c=i%7; 
+  for(let r=5;r>=0;r--){ 
+    if(!c4Grid[r][c]){ 
+      c4Grid[r][c]=1; 
+      document.querySelectorAll('#c4-grid div')[r*7+c].classList.add('p1'); 
+      playBeep(300,0.1); 
+      
+      if(isMultiplayer && mpConn) {
+        mpConn.send({ type: 'c4_move', c: c });
+        c4Turn = 2;
+        document.getElementById('c4-status').textContent='Waiting for opponent...';
+      } else {
+        c4AI(); 
+      }
+      return; 
+    } 
+  } 
+}
+function c4AI(){ setTimeout(()=>{ const valid=[0,1,2,3,4,5,6].filter(c=>!c4Grid[0][c]); if(!valid.length)return; const c=valid[Math.floor(Math.random()*valid.length)]; for(let r=5;r>=0;r--){ if(!c4Grid[r][c]){ c4Grid[r][c]=2; document.querySelectorAll('#c4-grid div')[r*7+c].classList.add('p2'); playBeep(400,0.1); break; } } },300); }
+document.getElementById('c4-restart').onclick = c4Init;
+
+// Pong
+let pongPlayer, pongAI, pongBall, pongKeys={}, pongRAF=null;
+function pongInit(){
+  pongPlayer={x:14,y:130,w:10,h:60}; pongAI={x:476,y:130,w:10,h:60}; pongBall={x:250,y:160,r:7,vx:(Math.random()<0.5?1:-1)*4,vy:(Math.random()-0.5)*6};
+  if(pongRAF) cancelAnimationFrame(pongRAF); pongLoop();
+}
+function pongStop(){ if(pongRAF) cancelAnimationFrame(pongRAF); pongRAF=null; }
+function pongLoop(){
+  if(activeGame!=='pong') return;
+  
+  if(isMultiplayer) {
+    if(isHost) {
+      // Host runs physics
+      if(pongKeys.up) pongPlayer.y-=7; if(pongKeys.down) pongPlayer.y+=7;
+      pongPlayer.y=Math.max(0,Math.min(260,pongPlayer.y));
+      
+      pongBall.x+=pongBall.vx; pongBall.y+=pongBall.vy;
+      if(pongBall.y-pongBall.r<0||pongBall.y+pongBall.r>320) pongBall.vy*=-1;
+      
+      if(pongBall.vx<0&&pongBall.x-pongBall.r<pongPlayer.x+pongPlayer.w&&pongBall.y>pongPlayer.y&&pongBall.y<pongPlayer.y+pongPlayer.h){ pongBall.x=pongPlayer.x+pongPlayer.w+pongBall.r; pongBall.vx=Math.abs(pongBall.vx)*1.05; playBeep(400,0.05); }
+      if(pongBall.vx>0&&pongBall.x+pongBall.r>pongAI.x&&pongBall.y>pongAI.y&&pongBall.y<pongAI.y+pongAI.h){ pongBall.x=pongAI.x-pongBall.r; pongBall.vx=-Math.abs(pongBall.vx)*1.05; }
+      
+      if(pongBall.x<-10||pongBall.x>510){ pongBall={x:250,y:160,r:7,vx:(Math.random()<0.5?1:-1)*4,vy:(Math.random()-0.5)*6}; playBeep(200,0.1); }
+      
+      if(mpConn) mpConn.send({ type: 'pong_state', ball: pongBall, p1: pongPlayer.y, p2: pongAI.y });
+    } else {
+      // Guest just renders and sends paddle
+      if(pongKeys.up) pongPlayer.y-=7; if(pongKeys.down) pongPlayer.y+=7;
+      pongPlayer.y=Math.max(0,Math.min(260,pongPlayer.y));
+      if(mpConn) mpConn.send({ type: 'pong_input', y: pongPlayer.y });
+    }
+  } else {
+    // Local AI
+    if(pongKeys.up) pongPlayer.y-=7; if(pongKeys.down) pongPlayer.y+=7;
+    pongPlayer.y=Math.max(0,Math.min(260,pongPlayer.y));
+    const target=pongBall.y-30; pongAI.y+=Math.max(-4.5,Math.min(4.5,target-pongAI.y)); pongAI.y=Math.max(0,Math.min(260,pongAI.y));
+    pongBall.x+=pongBall.vx; pongBall.y+=pongBall.vy;
+    if(pongBall.y-pongBall.r<0||pongBall.y+pongBall.r>320) pongBall.vy*=-1;
+    if(pongBall.vx<0&&pongBall.x-pongBall.r<pongPlayer.x+pongPlayer.w&&pongBall.y>pongPlayer.y&&pongBall.y<pongPlayer.y+pongPlayer.h){ pongBall.x=pongPlayer.x+pongPlayer.w+pongBall.r; pongBall.vx=Math.abs(pongBall.vx)*1.05; playBeep(400,0.05); }
+    if(pongBall.vx>0&&pongBall.x+pongBall.r>pongAI.x&&pongBall.y>pongAI.y&&pongBall.y<pongAI.y+pongAI.h){ pongBall.x=pongAI.x-pongBall.r; pongBall.vx=-Math.abs(pongBall.vx)*1.05; }
+    if(pongBall.x<-10||pongBall.x>510){ pongBall={x:250,y:160,r:7,vx:(Math.random()<0.5?1:-1)*4,vy:(Math.random()-0.5)*6}; playBeep(200,0.1); }
+  }
+
+  pongDraw();
+  pongRAF=requestAnimationFrame(pongLoop);
+}
+function pongDraw(){
+  const ctx=document.getElementById('pong-canvas').getContext('2d'); ctx.fillStyle='#06080e'; ctx.fillRect(0,0,500,320);
+  ctx.fillStyle='#6a7bff'; ctx.fillRect(pongPlayer.x,pongPlayer.y,pongPlayer.w,pongPlayer.h);
+  ctx.fillStyle='#ff4d6d'; ctx.fillRect(pongAI.x,pongAI.y,pongAI.w,pongAI.h);
+  ctx.beginPath(); ctx.arc(pongBall.x,pongBall.y,pongBall.r,0,Math.PI*2); ctx.fillStyle='#ffd166'; ctx.fill();
+}
+document.addEventListener('keydown',e=>{ if(activeGame!=='pong')return; if(e.key==='ArrowUp'||e.key==='w')pongKeys.up=true; if(e.key==='ArrowDown'||e.key==='s')pongKeys.down=true; });
+document.addEventListener('keyup',e=>{ if(activeGame!=='pong')return; if(e.key==='ArrowUp'||e.key==='w')pongKeys.up=false; if(e.key==='ArrowDown'||e.key==='s')pongKeys.down=false; });
+document.getElementById('pong-restart').onclick = pongInit;
+
+/* ============================================================
+   TOWER DEFENSE DELUXE (Unchanged)
+   ============================================================ */
+// [Tower Defense code omitted for brevity, it remains exactly the same as the previous version] 
+// Actually, I will include the full TD code so the file works completely.
+
 const tdCanvas = document.getElementById('td-canvas');
 const tdCtx = tdCanvas.getContext('2d');
 const tdShopEl = document.getElementById('td-shop');
 const tdInfoEl = document.getElementById('td-info');
 const CELL = 40, COLS = 14, ROWS = 11;
 
-// 5 Maps
 const MAPS = [
-  // Zigzag
   [{x:20,y:60},{x:540,y:60},{x:540,y:220},{x:20,y:220},{x:20,y:380},{x:540,y:380}],
-  // S-Curve
   [{x:20,y:60},{x:540,y:60},{x:540,y:220},{x:280,y:220},{x:280,y:380},{x:540,y:380}],
-  // The Cross
   [{x:280,y:20},{x:280,y:420}],
-  // Spiral
   [{x:20,y:20},{x:520,y:20},{x:520,y:420},{x:40,y:420},{x:40,y:120},{x:420,y:120},{x:420,y:320},{x:160,y:320}],
-  // Labyrinth
   [{x:20,y:60},{x:300,y:60},{x:300,y:180},{x:20,y:180},{x:20,y:300},{x:540,y:300},{x:540,y:180},{x:400,y:180},{x:400,y:60},{x:540,y:60}]
 ];
-
 const DIFFICULTIES = {
   easy: { hpMult: 1, startMoney: 800, lives: 30 },
   mid: { hpMult: 1.5, startMoney: 500, lives: 20 },
   hard: { hpMult: 2.5, startMoney: 300, lives: 10 },
   super: { hpMult: 4, startMoney: 200, lives: 5 }
 };
-
 const TOWER_TYPES = {
-  arrow: { name: 'Arrow', icon: '🏹', color: '#6a7bff', cost: 50, upgradeCosts: [40, 80, 150, 300],
-    levels: [
-      { damage: 10, range: 100, fireRate: 1.5, projectileSpeed: 500 },
-      { damage: 18, range: 120, fireRate: 2.0, projectileSpeed: 600 },
-      { damage: 30, range: 140, fireRate: 2.5, projectileSpeed: 700 },
-      { damage: 50, range: 160, fireRate: 3.5, projectileSpeed: 800, special: 'Shoots 2 arrows' },
-      { damage: 80, range: 180, fireRate: 5.0, projectileSpeed: 900, special: 'Shoots 3 arrows' }
-    ] },
-  cannon: { name: 'Cannon', icon: '💣', color: '#ffab40', cost: 100, upgradeCosts: [80, 150, 280, 500],
-    levels: [
-      { damage: 20, range: 90, fireRate: 0.6, projectileSpeed: 300, splash: 40 },
-      { damage: 35, range: 100, fireRate: 0.7, projectileSpeed: 320, splash: 50 },
-      { damage: 55, range: 115, fireRate: 0.8, projectileSpeed: 340, splash: 65 },
-      { damage: 90, range: 130, fireRate: 1.0, projectileSpeed: 360, splash: 80, special: 'Massive splash' },
-      { damage: 150, range: 150, fireRate: 1.5, projectileSpeed: 400, splash: 100, special: 'Nuke splash' }
-    ] },
-  frost: { name: 'Frost', icon: '❄️', color: '#2ee59d', cost: 75, upgradeCosts: [60, 120, 220, 400],
-    levels: [
-      { damage: 5, range: 100, fireRate: 0.8, projectileSpeed: 400, slow: 0.5, slowDur: 2 },
-      { damage: 10, range: 115, fireRate: 1.0, projectileSpeed: 420, slow: 0.45, slowDur: 2.5 },
-      { damage: 18, range: 130, fireRate: 1.2, projectileSpeed: 440, slow: 0.4, slowDur: 3 },
-      { damage: 30, range: 145, fireRate: 1.5, projectileSpeed: 460, slow: 0.35, slowDur: 3.5, special: 'Chance to freeze' },
-      { damage: 50, range: 160, fireRate: 2.0, projectileSpeed: 500, slow: 0.2, slowDur: 5, special: 'Freezes everything' }
-    ] },
-  sniper: { name: 'Sniper', icon: '🎯', color: '#b88aff', cost: 150, upgradeCosts: [120, 220, 400, 800],
-    levels: [
-      { damage: 40, range: 180, fireRate: 0.5, projectileSpeed: 900 },
-      { damage: 70, range: 210, fireRate: 0.6, projectileSpeed: 1000 },
-      { damage: 120, range: 240, fireRate: 0.7, projectileSpeed: 1100 },
-      { damage: 200, range: 280, fireRate: 0.9, projectileSpeed: 1200, special: 'Headshots (Crit)' },
-      { damage: 400, range: 350, fireRate: 1.2, projectileSpeed: 1500, special: 'One-shot' }
-    ] },
-  tesla: { name: 'Tesla', icon: '⚡', color: '#ffd166', cost: 200, upgradeCosts: [140, 260, 460, 900],
-    levels: [
-      { damage: 15, range: 90, fireRate: 0.8, chain: 2, chainRange: 70 },
-      { damage: 25, range: 100, fireRate: 1.0, chain: 3, chainRange: 80 },
-      { damage: 40, range: 115, fireRate: 1.2, chain: 4, chainRange: 90 },
-      { damage: 65, range: 130, fireRate: 1.5, chain: 5, chainRange: 100, special: 'Infinite chain' },
-      { damage: 100, range: 150, fireRate: 2.0, chain: 10, chainRange: 120, special: 'Overload' }
-    ] },
-  poison: { name: 'Poison', icon: '🧪', color: '#a29bfe', cost: 120, upgradeCosts: [90, 180, 320, 600],
-    levels: [
-      { damage: 5, range: 100, fireRate: 0.6, projectileSpeed: 400, poisonDmg: 5, poisonDur: 3 },
-      { damage: 8, range: 110, fireRate: 0.7, projectileSpeed: 420, poisonDmg: 10, poisonDur: 3.5 },
-      { damage: 12, range: 120, fireRate: 0.8, projectileSpeed: 440, poisonDmg: 18, poisonDur: 4 },
-      { damage: 20, range: 135, fireRate: 1.0, projectileSpeed: 460, poisonDmg: 30, poisonDur: 5, special: 'Spreads poison' },
-      { damage: 35, range: 150, fireRate: 1.2, projectileSpeed: 480, poisonDmg: 50, poisonDur: 6, special: 'Plague' }
-    ] },
-  laser: { name: 'Laser', icon: '🔫', color: '#ff4d6d', cost: 250, upgradeCosts: [200, 350, 600, 1200],
-    levels: [
-      { damage: 2, range: 110, fireRate: 30 },
-      { damage: 4, range: 125, fireRate: 30 },
-      { damage: 7, range: 140, fireRate: 30 },
-      { damage: 12, range: 160, fireRate: 30, special: 'Pierces enemies' },
-      { damage: 20, range: 180, fireRate: 30, special: 'Obliterates enemies' }
-    ] },
-  missile: { name: 'Missile', icon: '🚀', color: '#ff8a5c', cost: 300, upgradeCosts: [250, 450, 800, 1500],
-    levels: [
-      { damage: 50, range: 200, fireRate: 0.3, projectileSpeed: 150, splash: 80 },
-      { damage: 80, range: 220, fireRate: 0.4, projectileSpeed: 160, splash: 100 },
-      { damage: 130, range: 240, fireRate: 0.5, projectileSpeed: 170, splash: 120 },
-      { damage: 200, range: 270, fireRate: 0.6, projectileSpeed: 180, splash: 150, special: 'Nuke payload' },
-      { damage: 500, range: 300, fireRate: 0.8, projectileSpeed: 200, splash: 200, special: 'Tactical Nuke' }
-    ] },
-  boomerang: { name: 'Boomerang', icon: '🪃', color: '#00d2d3', cost: 180, upgradeCosts: [150, 280, 500, 1000],
-    levels: [
-      { damage: 25, range: 120, fireRate: 0.8, projectileSpeed: 300 },
-      { damage: 40, range: 140, fireRate: 1.0, projectileSpeed: 350 },
-      { damage: 65, range: 160, fireRate: 1.2, projectileSpeed: 400 },
-      { damage: 100, range: 180, fireRate: 1.5, projectileSpeed: 450, special: 'Hits twice' },
-      { damage: 180, range: 200, fireRate: 2.0, projectileSpeed: 500, special: 'Hits thrice' }
-    ] },
-  support: { name: 'Support', icon: '📡', color: '#f1f3f9', cost: 220, upgradeCosts: [180, 300, 500, 1000],
-    levels: [
-      { range: 100, buffDmg: 0.1, buffSpd: 0.1 },
-      { range: 120, buffDmg: 0.2, buffSpd: 0.15 },
-      { range: 140, buffDmg: 0.3, buffSpd: 0.2 },
-      { range: 160, buffDmg: 0.5, buffSpd: 0.3, special: 'Buffs damage & speed' },
-      { range: 200, buffDmg: 1.0, buffSpd: 0.5, special: 'Double damage & speed' }
-    ] },
-  bank: { name: 'Bank', icon: '💰', color: '#ffd166', cost: 150, upgradeCosts: [100, 200, 400, 800],
-    levels: [
-      { income: 5, range: 0 },
-      { income: 10, range: 0 },
-      { income: 20, range: 0 },
-      { income: 40, range: 0 },
-      { income: 100, range: 0 }
-    ] },
-  god: { name: 'God', icon: '👑', color: '#ff0000', cost: 1000, upgradeCosts: [1000, 2000, 5000, 10000],
-    levels: [
-      { damage: 50, range: 200, fireRate: 5 },
-      { damage: 100, range: 300, fireRate: 10 },
-      { damage: 200, range: 400, fireRate: 20 },
-      { damage: 300, range: 500, fireRate: 50 },
-      { damage: 500, range: 1000, fireRate: 1000, special: 'Instant Oblivion' }
-    ] }
+  arrow: { name: 'Arrow', icon: '🏹', color: '#6a7bff', cost: 50, upgradeCosts: [40, 80, 150, 300], levels: [ { damage: 10, range: 100, fireRate: 1.5, projectileSpeed: 500 }, { damage: 18, range: 120, fireRate: 2.0, projectileSpeed: 600 }, { damage: 30, range: 140, fireRate: 2.5, projectileSpeed: 700 }, { damage: 50, range: 160, fireRate: 3.5, projectileSpeed: 800, special: 'Shoots 2 arrows' }, { damage: 80, range: 180, fireRate: 5.0, projectileSpeed: 900, special: 'Shoots 3 arrows' } ] },
+  cannon: { name: 'Cannon', icon: '💣', color: '#ffab40', cost: 100, upgradeCosts: [80, 150, 280, 500], levels: [ { damage: 20, range: 90, fireRate: 0.6, projectileSpeed: 300, splash: 40 }, { damage: 35, range: 100, fireRate: 0.7, projectileSpeed: 320, splash: 50 }, { damage: 55, range: 115, fireRate: 0.8, projectileSpeed: 340, splash: 65 }, { damage: 90, range: 130, fireRate: 1.0, projectileSpeed: 360, splash: 80, special: 'Massive splash' }, { damage: 150, range: 150, fireRate: 1.5, projectileSpeed: 400, splash: 100, special: 'Nuke splash' } ] },
+  frost: { name: 'Frost', icon: '❄️', color: '#2ee59d', cost: 75, upgradeCosts: [60, 120, 220, 400], levels: [ { damage: 5, range: 100, fireRate: 0.8, projectileSpeed: 400, slow: 0.5, slowDur: 2 }, { damage: 10, range: 115, fireRate: 1.0, projectileSpeed: 420, slow: 0.45, slowDur: 2.5 }, { damage: 18, range: 130, fireRate: 1.2, projectileSpeed: 440, slow: 0.4, slowDur: 3 }, { damage: 30, range: 145, fireRate: 1.5, projectileSpeed: 460, slow: 0.35, slowDur: 3.5, special: 'Chance to freeze' }, { damage: 50, range: 160, fireRate: 2.0, projectileSpeed: 500, slow: 0.2, slowDur: 5, special: 'Freezes everything' } ] },
+  sniper: { name: 'Sniper', icon: '🎯', color: '#b88aff', cost: 150, upgradeCosts: [120, 220, 400, 800], levels: [ { damage: 40, range: 180, fireRate: 0.5, projectileSpeed: 900 }, { damage: 70, range: 210, fireRate: 0.6, projectileSpeed: 1000 }, { damage: 120, range: 240, fireRate: 0.7, projectileSpeed: 1100 }, { damage: 200, range: 280, fireRate: 0.9, projectileSpeed: 1200, special: 'Headshots (Crit)' }, { damage: 400, range: 350, fireRate: 1.2, projectileSpeed: 1500, special: 'One-shot' } ] },
+  tesla: { name: 'Tesla', icon: '⚡', color: '#ffd166', cost: 200, upgradeCosts: [140, 260, 460, 900], levels: [ { damage: 15, range: 90, fireRate: 0.8, chain: 2, chainRange: 70 }, { damage: 25, range: 100, fireRate: 1.0, chain: 3, chainRange: 80 }, { damage: 40, range: 115, fireRate: 1.2, chain: 4, chainRange: 90 }, { damage: 65, range: 130, fireRate: 1.5, chain: 5, chainRange: 100, special: 'Infinite chain' }, { damage: 100, range: 150, fireRate: 2.0, chain: 10, chainRange: 120, special: 'Overload' } ] },
+  poison: { name: 'Poison', icon: '🧪', color: '#a29bfe', cost: 120, upgradeCosts: [90, 180, 320, 600], levels: [ { damage: 5, range: 100, fireRate: 0.6, projectileSpeed: 400, poisonDmg: 5, poisonDur: 3 }, { damage: 8, range: 110, fireRate: 0.7, projectileSpeed: 420, poisonDmg: 10, poisonDur: 3.5 }, { damage: 12, range: 120, fireRate: 0.8, projectileSpeed: 440, poisonDmg: 18, poisonDur: 4 }, { damage: 20, range: 135, fireRate: 1.0, projectileSpeed: 460, poisonDmg: 30, poisonDur: 5, special: 'Spreads poison' }, { damage: 35, range: 150, fireRate: 1.2, projectileSpeed: 480, poisonDmg: 50, poisonDur: 6, special: 'Plague' } ] },
+  laser: { name: 'Laser', icon: '🔫', color: '#ff4d6d', cost: 250, upgradeCosts: [200, 350, 600, 1200], levels: [ { damage: 2, range: 110, fireRate: 30 }, { damage: 4, range: 125, fireRate: 30 }, { damage: 7, range: 140, fireRate: 30 }, { damage: 12, range: 160, fireRate: 30, special: 'Pierces enemies' }, { damage: 20, range: 180, fireRate: 30, special: 'Obliterates enemies' } ] },
+  missile: { name: 'Missile', icon: '🚀', color: '#ff8a5c', cost: 300, upgradeCosts: [250, 450, 800, 1500], levels: [ { damage: 50, range: 200, fireRate: 0.3, projectileSpeed: 150, splash: 80 }, { damage: 80, range: 220, fireRate: 0.4, projectileSpeed: 160, splash: 100 }, { damage: 130, range: 240, fireRate: 0.5, projectileSpeed: 170, splash: 120 }, { damage: 200, range: 270, fireRate: 0.6, projectileSpeed: 180, splash: 150, special: 'Nuke payload' }, { damage: 500, range: 300, fireRate: 0.8, projectileSpeed: 200, splash: 200, special: 'Tactical Nuke' } ] },
+  boomerang: { name: 'Boomerang', icon: '🪃', color: '#00d2d3', cost: 180, upgradeCosts: [150, 280, 500, 1000], levels: [ { damage: 25, range: 120, fireRate: 0.8, projectileSpeed: 300 }, { damage: 40, range: 140, fireRate: 1.0, projectileSpeed: 350 }, { damage: 65, range: 160, fireRate: 1.2, projectileSpeed: 400 }, { damage: 100, range: 180, fireRate: 1.5, projectileSpeed: 450, special: 'Hits twice' }, { damage: 180, range: 200, fireRate: 2.0, projectileSpeed: 500, special: 'Hits thrice' } ] },
+  support: { name: 'Support', icon: '📡', color: '#f1f3f9', cost: 220, upgradeCosts: [180, 300, 500, 1000], levels: [ { range: 100, buffDmg: 0.1, buffSpd: 0.1 }, { range: 120, buffDmg: 0.2, buffSpd: 0.15 }, { range: 140, buffDmg: 0.3, buffSpd: 0.2 }, { range: 160, buffDmg: 0.5, buffSpd: 0.3, special: 'Buffs damage & speed' }, { range: 200, buffDmg: 1.0, buffSpd: 0.5, special: 'Double damage & speed' } ] },
+  bank: { name: 'Bank', icon: '💰', color: '#ffd166', cost: 150, upgradeCosts: [100, 200, 400, 800], levels: [ { income: 5, range: 0 }, { income: 10, range: 0 }, { income: 20, range: 0 }, { income: 40, range: 0 }, { income: 100, range: 0 } ] },
+  god: { name: 'God', icon: '👑', color: '#ff0000', cost: 1000, upgradeCosts: [1000, 2000, 5000, 10000], levels: [ { damage: 50, range: 200, fireRate: 5 }, { damage: 100, range: 300, fireRate: 10 }, { damage: 200, range: 400, fireRate: 20 }, { damage: 300, range: 500, fireRate: 50 }, { damage: 500, range: 1000, fireRate: 1000, special: 'Instant Oblivion' } ] }
 };
 
 const ENEMY_TYPES = {
@@ -1578,31 +1748,8 @@ document.getElementById('td-start-wave').onclick = tdStartWave;
 document.getElementById('td-restart').onclick = tdInit;
 
 /* ============================================================
-   MINI GAMES
+   REMAINING MINI GAMES (Simplified logic kept for brevity)
    ============================================================ */
-// 1. Tic Tac Toe
-let tttBoard=[], tttTurn='X', tttOver=false;
-document.getElementById('ttt-grid').innerHTML = Array(9).fill('<button class="ttt-cell" onclick="tttClick(this)"></button>').join('');
-function tttInit(){ tttBoard=Array(9).fill(''); tttTurn='X'; tttOver=false; document.getElementById('ttt-status').textContent='Your turn (X)'; document.querySelectorAll('#ttt-grid button').forEach(b=>{b.textContent=''; b.className='ttt-cell';}); }
-function tttClick(btn){ if(tttOver || btn.textContent) return; const i=Array.from(btn.parentNode.children).indexOf(btn); tttBoard[i]=tttTurn; btn.textContent=tttTurn; btn.classList.add(tttTurn.toLowerCase()); playBeep(400,0.1); tttCheck(); }
-function tttCheck(){
-  const W=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-  for(let w of W) if(tttBoard[w[0]] && tttBoard[w[0]]===tttBoard[w[1]] && tttBoard[w[0]]===tttBoard[w[2]]){ tttOver=true; document.getElementById('ttt-status').textContent=tttBoard[w[0]]+' wins!'; playBeep(800,0.3); return; }
-  if(!tttBoard.includes('')){ tttOver=true; document.getElementById('ttt-status').textContent='Draw!'; return; }
-  tttTurn = tttTurn==='X'?'O':'X'; document.getElementById('ttt-status').textContent='Turn: '+tttTurn;
-  if(tttTurn==='O' && document.getElementById('ttt-ai').checked) setTimeout(tttAI, 300);
-}
-function tttAI(){ if(tttOver) return; const empty=tttBoard.map((v,i)=>v?null:i).filter(v=>v!==null); if(!empty.length) return; tttClick(document.querySelectorAll('#ttt-grid button')[empty[Math.floor(Math.random()*empty.length)]]); }
-document.getElementById('ttt-restart').onclick = tttInit;
-
-// 2. Connect 4
-let c4Grid, c4Over;
-document.getElementById('c4-grid').innerHTML = Array(42).fill('<div class="c4-cell" onclick="c4Drop(this)"></div>').join('');
-function c4Init(){ c4Grid=Array.from({length:6},()=>Array(7).fill(0)); c4Over=false; document.querySelectorAll('#c4-grid div').forEach(d=>d.className='c4-cell'); document.getElementById('c4-status').textContent='Your turn'; }
-function c4Drop(cell){ if(c4Over) return; const i=Array.from(cell.parentNode.children).indexOf(cell); const c=i%7; for(let r=5;r>=0;r--){ if(!c4Grid[r][c]){ c4Grid[r][c]=1; document.querySelectorAll('#c4-grid div')[r*7+c].classList.add('p1'); playBeep(300,0.1); c4AI(); return; } } }
-function c4AI(){ setTimeout(()=>{ const valid=[0,1,2,3,4,5,6].filter(c=>!c4Grid[0][c]); if(!valid.length)return; const c=valid[Math.floor(Math.random()*valid.length)]; for(let r=5;r>=0;r--){ if(!c4Grid[r][c]){ c4Grid[r][c]=2; document.querySelectorAll('#c4-grid div')[r*7+c].classList.add('p2'); playBeep(400,0.1); break; } } },300); }
-document.getElementById('c4-restart').onclick = c4Init;
-
 // 3. Memory
 let memFirst=null, memLock=false, memMoves=0, memPairs=0;
 function memInit(){
@@ -1720,33 +1867,6 @@ function brLoop(){
 document.addEventListener('keydown',e=>{ if(activeGame!=='breakout')return; if(e.key==='ArrowLeft'||e.key==='a')brKeys.left=true; if(e.key==='ArrowRight'||e.key==='d')brKeys.right=true; });
 document.addEventListener('keyup',e=>{ if(activeGame!=='breakout')return; if(e.key==='ArrowLeft'||e.key==='a')brKeys.left=false; if(e.key==='ArrowRight'||e.key==='d')brKeys.right=false; });
 document.getElementById('br-restart').onclick = brInit;
-
-// 9. Pong
-let pongPlayer, pongAI, pongBall, pongKeys={}, pongRAF=null;
-function pongInit(){
-  pongPlayer={x:14,y:130,w:10,h:60}; pongAI={x:476,y:130,w:10,h:60}; pongBall={x:250,y:160,r:7,vx:(Math.random()<0.5?1:-1)*4,vy:(Math.random()-0.5)*6};
-  if(pongRAF) cancelAnimationFrame(pongRAF); pongLoop();
-}
-function pongStop(){ if(pongRAF) cancelAnimationFrame(pongRAF); pongRAF=null; }
-function pongLoop(){
-  if(activeGame!=='pong') return;
-  if(pongKeys.up) pongPlayer.y-=7; if(pongKeys.down) pongPlayer.y+=7;
-  pongPlayer.y=Math.max(0,Math.min(260,pongPlayer.y));
-  const target=pongBall.y-30; pongAI.y+=Math.max(-4.5,Math.min(4.5,target-pongAI.y)); pongAI.y=Math.max(0,Math.min(260,pongAI.y));
-  pongBall.x+=pongBall.vx; pongBall.y+=pongBall.vy;
-  if(pongBall.y-pongBall.r<0||pongBall.y+pongBall.r>320) pongBall.vy*=-1;
-  if(pongBall.vx<0&&pongBall.x-pongBall.r<pongPlayer.x+pongPlayer.w&&pongBall.y>pongPlayer.y&&pongBall.y<pongPlayer.y+pongPlayer.h){ pongBall.x=pongPlayer.x+pongPlayer.w+pongBall.r; pongBall.vx=Math.abs(pongBall.vx)*1.05; playBeep(400,0.05); }
-  if(pongBall.vx>0&&pongBall.x+pongBall.r>pongAI.x&&pongBall.y>pongAI.y&&pongBall.y<pongAI.y+pongAI.h){ pongBall.x=pongAI.x-pongBall.r; pongBall.vx=-Math.abs(pongBall.vx)*1.05; }
-  if(pongBall.x<-10||pongBall.x>510){ pongBall={x:250,y:160,r:7,vx:(Math.random()<0.5?1:-1)*4,vy:(Math.random()-0.5)*6}; playBeep(200,0.1); }
-  const ctx=document.getElementById('pong-canvas').getContext('2d'); ctx.fillStyle='#06080e'; ctx.fillRect(0,0,500,320);
-  ctx.fillStyle='#6a7bff'; ctx.fillRect(pongPlayer.x,pongPlayer.y,pongPlayer.w,pongPlayer.h);
-  ctx.fillStyle='#ff4d6d'; ctx.fillRect(pongAI.x,pongAI.y,pongAI.w,pongAI.h);
-  ctx.beginPath(); ctx.arc(pongBall.x,pongBall.y,pongBall.r,0,Math.PI*2); ctx.fillStyle='#ffd166'; ctx.fill();
-  pongRAF=requestAnimationFrame(pongLoop);
-}
-document.addEventListener('keydown',e=>{ if(activeGame!=='pong')return; if(e.key==='ArrowUp'||e.key==='w')pongKeys.up=true; if(e.key==='ArrowDown'||e.key==='s')pongKeys.down=true; });
-document.addEventListener('keyup',e=>{ if(activeGame!=='pong')return; if(e.key==='ArrowUp'||e.key==='w')pongKeys.up=false; if(e.key==='ArrowDown'||e.key==='s')pongKeys.down=false; });
-document.getElementById('pong-restart').onclick = pongInit;
 
 // 10. Flappy
 const FW=340, FH=480, FL_GRAVITY=0.42, FL_JUMP=-6.6, FL_PIPE_W=55, FL_GAP=130, FL_SPEED=2.4;
@@ -1907,10 +2027,6 @@ function wlRenderKeys(){
 function wlSubmit(){ if(wlOver||wlCurrent.length!==5)return; const word=wlCurrent,result=Array(5).fill(''),tArr=wlTarget.split(''),used=Array(5).fill(false); for(let i=0;i<5;i++)if(word[i]===tArr[i]){result[i]='correct';used[i]=true;} for(let i=0;i<5;i++){if(result[i])continue;const idx=tArr.findIndex((c,j)=>c===word[i]&&!used[j]);if(idx>=0){result[i]='present';used[idx]=true;}else result[i]='absent';} wlGuesses.push(word);wlResults.push(result);wlCurrent=''; if(word===wlTarget){wlOver=true;document.getElementById('wl-status').textContent=`🎉 Got it in ${wlGuesses.length}!`;playBeep(800,0.2);}else if(wlGuesses.length>=6){wlOver=true;document.getElementById('wl-status').textContent=`😵 Out of tries! ${wlTarget}`;playBeep(150,0.3);} wlRender(); }
 document.addEventListener('keydown',e=>{ if(activeGame!=='wordle')return; const k=e.key; if(k==='Enter'){e.preventDefault();wlSubmit();}else if(k==='Backspace'){e.preventDefault();wlCurrent=wlCurrent.slice(0,-1);wlRender();}else if(/^[a-zA-Z]$/.test(k)){if(wlOver||wlCurrent.length>=5)return;wlCurrent+=k.toUpperCase();wlRender();} });
 document.getElementById('wl-restart').onclick = wlInit;
-
-/* ============================================================
-   NEW GAMES IMPLEMENTATIONS
-   ============================================================ */
 
 // 21. Lights Out
 let loGrid=[], loSize=5;
@@ -2274,10 +2390,8 @@ function hmNewQ(){
   [...opts].sort(()=>Math.random()-0.5).forEach(v=>{ const btn=document.createElement('button'); btn.className='btn alt'; btn.textContent=v; btn.onclick=()=>{ if(v===ans){ hmScore++; document.getElementById('hm-status').textContent='Score: '+hmScore; playBeep(600,0.05); hmNewQ(); } else { playBeep(200,0.1); } }; g.appendChild(btn); });
 }
 
-// 41. Word Scramble is already handled in #25.
-
-// Init some games on load
-tttInit(); memInit(); c4Init(); gnInit(); rpsInit(); mathReset(); tyInit(); simonReset(); hmInit(); wlInit(); msInit(); spInit(); wamReset(); loInit(); nimInit(); scrInit(); plInit();
+// Init
+tttInit(); memInit(); c4Init(); pongInit(); gnInit(); rpsInit(); mathReset(); tyInit(); simonReset(); hmInit(); wlInit(); msInit(); spInit(); wamReset(); loInit(); nimInit(); scrInit(); plInit();
 </script>
 </body>
 </html>
